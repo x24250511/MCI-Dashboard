@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mci-dashboard
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mci-dashboard
+  template:
+    metadata:
+      labels:
+        app: mci-dashboard
+    spec:
+      containers:
+        - name: mci-dashboard
+          image: tejaspatil/mci-dashboard:latest
+          ports:
+            - containerPort: 5555
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://your-prometheus:9090"
+            - name: NAMESPACE
+              value: "default"
+            - name: CONTAINER
+              value: "your-container-name"
+            - name: OPT_THROTTLE
+              value: "0.001"
+            - name: OPT_MEM
+              value: "0.076"
+            - name: OPT_P99
+              value: "50.0"
+            - name: OPT_RESTART
+              value: "0.0"
+            - name: REFRESH_INTERVAL
+              value: "15"
+            - name: DASHBOARD_PORT
+              value: "5555"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mci-dashboard-svc
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: mci-dashboard
+  ports:
+    - port: 5555
+      targetPort: 5555

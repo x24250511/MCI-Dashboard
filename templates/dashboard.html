@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MCI Detection Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--bg1:#161b22;--bg2:#1c2128;--bg3:#21262d;--border:#30363d;--border2:#3d444d;--text:#e6edf3;--text2:#8b949e;--text3:#6e7681;--accent:#2f81f7;--red:#f85149;--amber:#d29922;--green:#3fb950;--blue:#388bfd;--purple:#8957e5;--sans:'Inter',system-ui,-apple-system,sans-serif;--mono:ui-monospace,'Cascadia Code','JetBrains Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.sidebar{background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo .wordmark{font-size:14px;font-weight:600;color:var(--text);letter-spacing:-0.01em}
+.sidebar-logo .version{font-size:11px;color:var(--text3);margin-top:3px}
+.nav{padding:8px 0;flex:1}
+.nav-item{display:flex;align-items:center;padding:8px 16px;cursor:pointer;color:var(--text2);font-size:13px;font-weight:400;border-left:2px solid transparent;transition:color 0.1s,background 0.1s;user-select:none;margin:1px 8px 1px 0;border-radius:0 4px 4px 0}
+.nav-item:hover{color:var(--text);background:var(--bg2)}
+.nav-item.active{color:var(--text);border-left-color:var(--accent);background:rgba(47,129,247,0.08);font-weight:500}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border)}
+.status-pill{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text3)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.status-dot.connected{background:var(--green)}
+.status-dot.error{background:var(--red)}
+@keyframes pulse-opacity{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-dot.connected{animation:pulse-opacity 2.5s ease-in-out infinite}
+.main{overflow-y:auto}
+.topbar{padding:0 28px;height:56px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg1);position:sticky;top:0;z-index:10}
+.page-title{font-size:14px;font-weight:500;color:var(--text)}
+.page-sub{font-size:12px;color:var(--text3);margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.timestamp{font-size:12px;color:var(--text3);font-variant-numeric:tabular-nums}
+.btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:500;transition:background 0.1s,border-color 0.1s,color 0.1s}
+.btn:hover{border-color:var(--accent);color:var(--text);background:var(--bg2)}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.tab-pane{display:none;padding:24px 28px}
+.tab-pane.active{display:block}
+.probe-bar{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.probe-bar input{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;width:220px;outline:none}
+.probe-bar input:focus{border-color:var(--accent)}
+.probe-label{font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px}
+.probe-info{font-size:11px;color:var(--text3);margin-left:auto}
+.mci-hero{display:grid;grid-template-columns:auto 1fr;background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px;transition:border-color 0.3s}
+.mci-score-block{padding:28px 32px;border-right:1px solid var(--border);min-width:200px;display:flex;flex-direction:column;justify-content:center}
+.mci-label{font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.mci-number{font-size:42px;font-weight:600;line-height:1;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;color:var(--text);transition:color 0.3s}
+.mci-classification{font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-top:12px;padding:4px 10px;border-radius:20px;display:inline-block;width:fit-content}
+.mci-meta{font-size:11px;color:var(--text3);margin-top:10px}
+.mci-right{padding:24px 28px;display:flex;flex-direction:column;justify-content:space-between}
+.mci-formula-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:10px}
+.mci-formula{font-family:var(--mono);font-size:12px;color:var(--text3);line-height:2}
+.mci-formula .highlight{color:var(--text2)}
+.mci-formula .value{color:var(--text);font-weight:500}
+.threshold-row{display:flex;gap:20px;margin-top:16px;flex-wrap:wrap}
+.threshold-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3)}
+.t-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.signals-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.signal-card{background:var(--bg1);border:1px solid var(--border);border-top:3px solid var(--border);border-radius:8px;padding:18px;transition:border-color 0.2s}
+.signal-card:hover{border-color:var(--border2)}
+.signal-label{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:10px}
+.signal-value{font-size:30px;font-weight:600;color:var(--text);line-height:1;font-variant-numeric:tabular-nums}
+.signal-unit{font-size:13px;color:var(--text3);margin-left:3px;font-weight:400}
+.signal-norm{font-size:11px;color:var(--text3);margin-top:8px}
+.signal-norm .norm-val{color:var(--text2);font-variant-numeric:tabular-nums}
+.signal-bar-track{height:3px;background:var(--bg3);border-radius:2px;margin-top:12px;overflow:hidden}
+.signal-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease;width:0%}
+.signal-threshold{font-size:10px;color:var(--text3);margin-top:5px}
+.info-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.info-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:18px}
+.info-card-title{font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--text3);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.kv-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.kv-row:last-child{border-bottom:none}
+.kv-key{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.kv-val{font-family:var(--mono);font-size:11px;color:var(--text2)}
+.upload-area{border:1px dashed var(--border2);border-radius:8px;padding:48px 32px;text-align:center;cursor:pointer;transition:border-color 0.15s,background 0.15s;margin-bottom:20px;background:var(--bg1)}
+.upload-area:hover{border-color:var(--accent);background:var(--bg2)}
+.upload-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:6px}
+.upload-sub{font-size:12px;color:var(--text3)}
+.csv-result{background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:14px}
+.csv-result-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.csv-mci-number{font-size:40px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.csv-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.csv-stat{background:var(--bg2);border-radius:6px;padding:12px}
+.csv-stat-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.csv-stat-val{font-size:18px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.csv-formula{font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg2);border-radius:6px;padding:10px 14px;line-height:1.8}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:11px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;color:var(--text3);padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);background:var(--bg1)}
+tbody td{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text2);font-family:var(--mono);font-size:12px}
+tbody tr:hover td{background:var(--bg2)}
+tbody tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+.empty-state{text-align:center;padding:48px;font-size:12px;color:var(--text3)}
+.rec-card{background:var(--bg1);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:8px;padding:18px;margin-bottom:10px}
+.rec-card.critical{border-left-color:var(--red)}
+.rec-card.warning{border-left-color:var(--amber)}
+.rec-card.info{border-left-color:var(--blue)}
+.rec-card.success{border-left-color:var(--green)}
+.rec-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.rec-signal{font-size:13px;font-weight:600;letter-spacing:0.04em}
+.rec-severity{font-size:10px;padding:2px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:0.05em;font-weight:600}
+.rec-row{display:grid;grid-template-columns:130px 1fr;gap:12px;padding:7px 0;border-bottom:1px solid var(--border)}
+.rec-row:last-child{border-bottom:none}
+.rec-key{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;padding-top:2px;font-weight:500}
+.rec-val{color:var(--text2);font-size:13px;line-height:1.5}
+.rec-val.highlight{color:var(--text);font-weight:500}
+.quick-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--sans);transition:border-color 0.1s,color 0.1s;white-space:nowrap}
+.quick-btn:hover{border-color:var(--border2);color:var(--text)}
+.quick-btn.active-q{border-color:var(--accent);color:var(--accent);background:rgba(47,129,247,0.08)}
+.prom-query-bar{display:flex;gap:10px;margin-bottom:16px;align-items:flex-end}
+.prom-query-bar input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-family:var(--mono);font-size:12px;outline:none}
+.prom-query-bar input:focus{border-color:var(--accent)}
+.prom-result-card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;overflow:hidden}
+.prom-result-header{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text3);display:flex;justify-content:space-between;align-items:center;background:var(--bg2)}
+.prom-result-row{display:grid;grid-template-columns:1fr auto;padding:10px 14px;border-bottom:1px solid var(--border);gap:16px;align-items:start}
+.prom-result-row:last-child{border-bottom:none}
+.prom-result-row:hover{background:var(--bg2)}
+.prom-labels{font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.8}
+.prom-labels .lk{color:var(--text3)}
+.prom-labels .lv{color:var(--text2)}
+.prom-value{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--text);white-space:nowrap;padding-top:2px;font-variant-numeric:tabular-nums}
+.prom-empty{padding:32px;text-align:center;font-size:12px;color:var(--text3)}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="wordmark">MCI Dashboard</div>
+      <div class="version">v1.0 — NCI MSc CC</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="switchTab('live',this)">Live Monitor</div>
+      <div class="nav-item" onclick="switchTab('csv',this)">CSV Analysis</div>
+      <div class="nav-item" onclick="switchTab('history',this)">History Log</div>
+      <div class="nav-item" onclick="switchTab('recommendations',this)">Recommendations</div>
+      <div class="nav-item" onclick="switchTab('metrics',this)">Metrics Explorer</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="status-pill">
+        <div class="status-dot" id="pulse-dot"></div>
+        <span id="conn-status">Connecting...</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Refresh: 15s</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="page-title">Live Monitor</div>
+        <div class="page-sub" id="page-sub">Composite Misconfiguration Index — real-time</div>
+      </div>
+      <div class="topbar-right">
+        <span class="timestamp" id="last-updated">--</span>
+        <button class="btn" onclick="refreshCurrent()">Refresh</button>
+      </div>
+    </div>
+
+    <!-- Live Tab -->
+    <div class="tab-pane active" id="tab-live">
+      <div class="probe-bar">
+        <div>
+          <div class="probe-label">Target URL</div>
+          <input type="text" id="probe-url" value="http://localhost:5000">
+        </div>
+        <button class="btn" id="probe-btn" onclick="probeLatency()">Probe Latency</button>
+        <div style="font-size:12px;color:var(--text3)">
+          P99: <span id="probed-p99" style="color:var(--text2);font-variant-numeric:tabular-nums">--</span>ms
+          <span id="probe-source" style="margin-left:8px;font-size:11px;color:var(--text3)"></span>
+        </div>
+        <div class="probe-info">Sends 20 requests automatically — or upload CSV for Locust P99</div>
+      </div>
+
+      <div class="probe-bar">
+        <div>
+          <div class="probe-label">Prometheus URL</div>
+          <input type="text" id="prom-url-input" placeholder="http://prometheus:9090" style="width:280px">
+        </div>
+        <button class="btn" id="prom-connect-btn" onclick="connectPrometheus()">Connect</button>
+        <div id="prom-connect-status" style="font-size:12px;color:var(--text3)"></div>
+        <div class="probe-info">Update Prometheus endpoint at runtime — no restart needed</div>
+      </div>
+
+      <div class="mci-hero" id="mci-hero">
+        <div class="mci-score-block">
+          <div class="mci-label">MCI Score</div>
+          <div class="mci-number" id="mci-number">--</div>
+          <div class="mci-classification" id="mci-badge">Waiting</div>
+          <div class="mci-meta" id="mci-meta">namespace: default</div>
+        </div>
+        <div class="mci-right">
+          <div class="mci-formula-label">Composite Formula</div>
+          <div class="mci-formula">
+            MCI = <span class="highlight">0.35</span> x N(ThrottleRatio)
+                + <span class="highlight">0.25</span> x N(MemUtil)
+                + <span class="highlight">0.25</span> x N(LatencyDeg)
+                + <span class="highlight">0.15</span> x N(RestartRate)<br>
+            MCI = <span id="f-throttle" class="value">--</span>
+                + <span id="f-mem" class="value">--</span>
+                + <span id="f-latency" class="value">--</span>
+                + <span id="f-restart" class="value">--</span>
+                = <span id="f-total" class="value">--</span>
+          </div>
+          <div class="threshold-row">
+            <div class="threshold-item"><div class="t-dot" style="background:#388bfd"></div>Over-Provisioned &lt; 0.05</div>
+            <div class="threshold-item"><div class="t-dot" style="background:#3fb950"></div>Optimal 0.05–0.15</div>
+            <div class="threshold-item"><div class="t-dot" style="background:#d29922"></div>Near-Optimal 0.15–0.40</div>
+            <div class="threshold-item"><div class="t-dot" style="background:#f85149"></div>Under-Provisioned ≥ 0.40</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="signals-grid">
+        <div class="signal-card" style="border-top-color:var(--red)">
+          <div class="signal-label">Throttle Ratio — w=0.35</div>
+          <div><span class="signal-value" id="sv-throttle">--</span><span class="signal-unit">%</span></div>
+          <div class="signal-norm">Normalised: <span class="norm-val" id="sn-throttle">--</span></div>
+          <div class="signal-bar-track"><div class="signal-bar-fill" id="sb-throttle" style="background:var(--red)"></div></div>
+          <div class="signal-threshold">Threshold &gt; 10%</div>
+        </div>
+        <div class="signal-card" style="border-top-color:var(--amber)">
+          <div class="signal-label">Memory Util — w=0.25</div>
+          <div><span class="signal-value" id="sv-mem">--</span><span class="signal-unit">%</span></div>
+          <div class="signal-norm">Normalised: <span class="norm-val" id="sn-mem">--</span></div>
+          <div class="signal-bar-track"><div class="signal-bar-fill" id="sb-mem" style="background:var(--amber)"></div></div>
+          <div class="signal-threshold">Threshold &gt; 85%</div>
+        </div>
+        <div class="signal-card" style="border-top-color:var(--purple)">
+          <div class="signal-label">P99 Latency — w=0.25</div>
+          <div><span class="signal-value" id="sv-latency">--</span><span class="signal-unit">ms</span></div>
+          <div class="signal-norm">Normalised: <span class="norm-val" id="sn-latency">--</span></div>
+          <div class="signal-bar-track"><div class="signal-bar-fill" id="sb-latency" style="background:var(--purple)"></div></div>
+          <div class="signal-threshold">Threshold &gt; 500ms</div>
+        </div>
+        <div class="signal-card" style="border-top-color:var(--blue)">
+          <div class="signal-label">Restart Rate — w=0.15</div>
+          <div><span class="signal-value" id="sv-restart">--</span><span class="signal-unit">/min</span></div>
+          <div class="signal-norm">Normalised: <span class="norm-val" id="sn-restart">--</span></div>
+          <div class="signal-bar-track"><div class="signal-bar-fill" id="sb-restart" style="background:var(--blue)"></div></div>
+          <div class="signal-threshold">Threshold &gt; 0</div>
+        </div>
+      </div>
+
+      <div class="info-card" style="margin-bottom:16px">
+        <div class="info-card-title">MCI Score — Last 10 Readings</div>
+        <canvas id="mci-chart" style="width:100%;display:none"></canvas>
+        <div id="chart-empty" class="empty-state" style="padding:32px 0">No readings yet — data appears after first refresh</div>
+      </div>
+
+      <div class="info-card" style="margin-bottom:16px">
+        <div class="info-card-title">Throttle Ratio — Last 10 Readings</div>
+        <canvas id="chart-throttle" style="width:100%;display:none"></canvas>
+        <div id="chart-throttle-empty" class="empty-state" style="padding:24px 0">No readings yet</div>
+      </div>
+
+      <div class="info-card" style="margin-bottom:16px">
+        <div class="info-card-title">Memory Utilisation — Last 10 Readings</div>
+        <canvas id="chart-mem" style="width:100%;display:none"></canvas>
+        <div id="chart-mem-empty" class="empty-state" style="padding:24px 0">No readings yet</div>
+      </div>
+
+      <div class="info-card" style="margin-bottom:24px">
+        <div class="info-card-title">P99 Latency — Last 10 Readings</div>
+        <canvas id="chart-latency" style="width:100%;display:none"></canvas>
+        <div id="chart-latency-empty" class="empty-state" style="padding:24px 0">No readings yet</div>
+      </div>
+
+      <div class="info-row">
+        <div class="info-card">
+          <div class="info-card-title">Baseline Configuration</div>
+          <div class="kv-row"><span class="kv-key">OPT_THROTTLE</span><span class="kv-val" id="b-throttle">--</span></div>
+          <div class="kv-row"><span class="kv-key">OPT_MEM</span><span class="kv-val" id="b-mem">--</span></div>
+          <div class="kv-row"><span class="kv-key">OPT_P99</span><span class="kv-val" id="b-p99">--</span></div>
+          <div class="kv-row"><span class="kv-key">OPT_RESTART</span><span class="kv-val" id="b-restart">--</span></div>
+        </div>
+        <div class="info-card">
+          <div class="info-card-title">Connection</div>
+          <div class="kv-row"><span class="kv-key">PROMETHEUS_URL</span><span class="kv-val" id="cfg-prom">--</span></div>
+          <div class="kv-row"><span class="kv-key">NAMESPACE</span><span class="kv-val" id="cfg-ns">--</span></div>
+          <div class="kv-row"><span class="kv-key">CONTAINER</span><span class="kv-val" id="cfg-container">--</span></div>
+          <div class="kv-row"><span class="kv-key">REFRESH_INTERVAL</span><span class="kv-val">15s</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CSV Tab -->
+    <div class="tab-pane" id="tab-csv">
+      <div class="upload-area" onclick="document.getElementById('csv-input').click()">
+        <div class="upload-title">Upload Locust Stats CSV</div>
+        <div class="upload-sub">*_stats.csv generated by locust --csv flag — auto-updates P99 for live dashboard</div>
+      </div>
+      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="uploadCSV(this)">
+      <div id="csv-results"></div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-pane" id="tab-history">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <span style="font-size:12px;color:var(--text3)">Last 100 readings — SQLite log</span>
+        <button class="btn" onclick="fetchHistory()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Timestamp</th><th>Pod</th><th>Throttle</th><th>Mem Util</th><th>P99 (ms)</th><th>Restart Rate</th><th>MCI Score</th><th>Classification</th></tr></thead>
+          <tbody id="history-body"><tr><td colspan="8" class="empty-state">No data yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recommendations Tab -->
+    <div class="tab-pane" id="tab-recommendations">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <span style="font-size:12px;color:var(--text3)">Actionable guidance — probe or run Locust first for live signal data</span>
+        <button class="btn" onclick="fetchRecommendations()">Refresh</button>
+      </div>
+      <div id="rec-summary"></div>
+      <div id="rec-list"></div>
+    </div>
+
+    <!-- Metrics Explorer Tab -->
+    <div class="tab-pane" id="tab-metrics">
+      <div class="prom-query-bar">
+        <div style="flex:1">
+          <div class="probe-label" style="margin-bottom:6px">PromQL Query</div>
+          <input type="text" id="prom-query"
+            placeholder="e.g. container_cpu_cfs_throttled_periods_total{namespace=&quot;default&quot;}"
+            onkeydown="if(event.key==='Enter')runPromQuery()">
+        </div>
+        <button class="btn" onclick="runPromQuery()">Run Query</button>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div class="probe-label" style="margin-bottom:10px">Quick Queries — click to run instantly</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px" id="quick-queries"></div>
+      </div>
+
+      <div id="prom-results">
+        <div class="prom-empty">Select a quick query or type a PromQL expression above</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const COLOR={
+  "Under-Provisioned":{fg:"#f85149",bg:"rgba(248,81,73,0.1)"},
+  "Near-Optimal":{fg:"#d29922",bg:"rgba(210,153,34,0.1)"},
+  "Optimal":{fg:"#3fb950",bg:"rgba(63,185,80,0.1)"},
+  "Over-Provisioned":{fg:"#388bfd",bg:"rgba(56,139,253,0.1)"}
+}
+const SEVERITY_COLORS={
+  critical:{fg:"#f85149",bg:"rgba(248,81,73,0.1)"},
+  warning:{fg:"#d29922",bg:"rgba(210,153,34,0.1)"},
+  info:{fg:"#388bfd",bg:"rgba(56,139,253,0.1)"},
+  success:{fg:"#3fb950",bg:"rgba(63,185,80,0.1)"}
+}
+const PAGES={
+  live:{title:"Live Monitor",sub:"Composite Misconfiguration Index — real-time"},
+  csv:{title:"CSV Analysis",sub:"Upload Locust stats CSV to calculate MCI score"},
+  history:{title:"History Log",sub:"SQLite time-series log of all MCI readings"},
+  recommendations:{title:"Recommendations",sub:"Actionable guidance based on current live signal values"},
+  metrics:{title:"Metrics Explorer",sub:"Query Prometheus directly — no external tools needed"}
+}
+
+const QUICK_QUERIES=[
+  {label:"Throttle Ratio",query:'rate(container_cpu_cfs_throttled_periods_total{namespace="default",container="flask"}[2m])/rate(container_cpu_cfs_periods_total{namespace="default",container="flask"}[2m])'},
+  {label:"CPU Throttled Periods",query:'container_cpu_cfs_throttled_periods_total{namespace="default",container="flask"}'},
+  {label:"CPU Total Periods",query:'container_cpu_cfs_periods_total{namespace="default",container="flask"}'},
+  {label:"Memory Working Set",query:'container_memory_working_set_bytes{namespace="default",container="flask"}'},
+  {label:"Memory Limit",query:'kube_pod_container_resource_limits{namespace="default",container="flask",resource="memory",unit="byte"}'},
+  {label:"Memory Util %",query:'container_memory_working_set_bytes{namespace="default",container="flask"}/kube_pod_container_resource_limits{namespace="default",container="flask",resource="memory",unit="byte"}'},
+  {label:"Pod Restarts",query:'kube_pod_container_status_restarts_total{namespace="default",container="flask"}'},
+  {label:"Restart Rate",query:'rate(kube_pod_container_status_restarts_total{namespace="default",container="flask"}[10m])'},
+  {label:"All Pods Status",query:'kube_pod_status_phase{namespace="default"}'},
+  {label:"Node CPU Usage",query:'rate(node_cpu_seconds_total{mode!="idle"}[2m])'},
+  {label:"Node Memory",query:'node_memory_MemAvailable_bytes'},
+  {label:"All Containers Memory",query:'container_memory_working_set_bytes{namespace="default"}'}
+]
+
+let currentTab='live'
+
+function switchTab(name,el){
+  currentTab=name
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
+  document.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById('tab-'+name).classList.add('active')
+  document.getElementById('page-title').textContent=PAGES[name].title
+  document.getElementById('page-sub').textContent=PAGES[name].sub
+  if(name==='history') fetchHistory()
+  if(name==='recommendations') fetchRecommendations()
+  if(name==='metrics') initMetrics()
+}
+
+function refreshCurrent(){
+  if(currentTab==='live') fetchLive()
+  if(currentTab==='history') fetchHistory()
+  if(currentTab==='recommendations') fetchRecommendations()
+}
+
+// ── Probe ─────────────────────────────────────────────────────────────────────
+function probeLatency(){
+  const url=document.getElementById('probe-url').value.trim()
+  const btn=document.getElementById('probe-btn')
+  if(!url) return
+  btn.textContent='Probing...'
+  btn.disabled=true
+  document.getElementById('probe-source').textContent='sending 20 requests...'
+  document.getElementById('probe-source').style.color='var(--text3)'
+  fetch('/api/probe_latency',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_url:url})})
+    .then(r=>r.json())
+    .then(()=>{
+      let attempts=0
+      const poll=setInterval(()=>{
+        fetch('/api/probe_status').then(r=>r.json()).then(d=>{
+          document.getElementById('probed-p99').textContent=d.p99
+          document.getElementById('probe-source').textContent='('+d.source+')'
+          document.getElementById('probe-source').style.color='var(--green)'
+          attempts++
+          if(attempts>=6){
+            clearInterval(poll)
+            btn.textContent='Probe Latency'
+            btn.disabled=false
+            fetchLive()
+          }
+        })
+      },2000)
+    })
+    .catch(()=>{btn.textContent='Probe Latency';btn.disabled=false})
+}
+
+// LiveData
+function fetchLive(){
+  fetch('/api/live').then(r=>r.json()).then(d=>{
+    const c=COLOR[d.classification]||COLOR["Optimal"]
+    const s=d.signals,n=d.normalised,b=d.baseline
+    document.getElementById('mci-number').textContent=d.mci.toFixed(4)
+    document.getElementById('mci-number').style.color=c.fg
+    document.getElementById('mci-badge').textContent=d.classification
+    document.getElementById('mci-badge').style.color=c.fg
+    document.getElementById('mci-badge').style.background=c.bg
+    document.getElementById('mci-hero').style.borderColor=c.fg+'44'
+    document.getElementById('mci-meta').textContent='pod: flask-default  |  '+new Date(d.timestamp).toLocaleTimeString()
+    document.getElementById('last-updated').textContent=new Date(d.timestamp).toLocaleTimeString()
+    document.getElementById('f-throttle').textContent=(0.35*n.N_throttle).toFixed(4)
+    document.getElementById('f-mem').textContent=(0.25*n.N_mem).toFixed(4)
+    document.getElementById('f-latency').textContent=(0.25*n.N_latency).toFixed(4)
+    document.getElementById('f-restart').textContent=(0.15*n.N_restart).toFixed(4)
+    document.getElementById('f-total').textContent=d.mci.toFixed(4)
+    document.getElementById('f-total').style.color=c.fg
+    document.getElementById('sv-throttle').textContent=(s.throttle_ratio*100).toFixed(1)
+    document.getElementById('sn-throttle').textContent=n.N_throttle
+    document.getElementById('sb-throttle').style.width=Math.min(s.throttle_ratio*300,100)+'%'
+    document.getElementById('sv-mem').textContent=(s.mem_util*100).toFixed(1)
+    document.getElementById('sn-mem').textContent=n.N_mem
+    document.getElementById('sb-mem').style.width=Math.min(s.mem_util*100,100)+'%'
+    document.getElementById('sv-latency').textContent=s.latency_p99
+    document.getElementById('sn-latency').textContent=n.N_latency
+    document.getElementById('sb-latency').style.width=Math.min(s.latency_p99/5,100)+'%'
+    document.getElementById('probed-p99').textContent=s.latency_p99
+    if(d.p99_source) document.getElementById('probe-source').textContent='('+d.p99_source+')'
+    document.getElementById('sv-restart').textContent=s.restart_rate.toFixed(4)
+    document.getElementById('sn-restart').textContent=n.N_restart
+    document.getElementById('sb-restart').style.width=Math.min(s.restart_rate*10000,100)+'%'
+    if(b){
+      document.getElementById('b-throttle').textContent=b.OPT_THROTTLE
+      document.getElementById('b-mem').textContent=b.OPT_MEM
+      document.getElementById('b-p99').textContent=b.OPT_P99+' ms'
+      document.getElementById('b-restart').textContent=b.OPT_RESTART
+    }
+    document.getElementById('pulse-dot').className='status-dot connected'
+    document.getElementById('conn-status').textContent='Connected'
+  }).catch(()=>{
+    document.getElementById('pulse-dot').className='status-dot error'
+    document.getElementById('conn-status').textContent='Disconnected'
+  })
+  fetch('/api/config').then(r=>r.json()).then(cfg=>{
+    document.getElementById('cfg-prom').textContent=cfg.prometheus_url
+    document.getElementById('cfg-ns').textContent=cfg.namespace
+    document.getElementById('cfg-container').textContent=cfg.container
+    const inp=document.getElementById('prom-url-input')
+    if(!inp.dataset.userEdited) inp.value=cfg.prometheus_url
+  }).catch(()=>{})
+}
+
+// ── Prometheus connect ────────────────────────────────────────────────────────
+function connectPrometheus(){
+  const url=document.getElementById('prom-url-input').value.trim()
+  if(!url) return
+  const btn=document.getElementById('prom-connect-btn')
+  const status=document.getElementById('prom-connect-status')
+  btn.textContent='Connecting...'
+  btn.disabled=true
+  status.textContent=''
+  status.style.color='var(--text3)'
+  fetch('/api/set_prometheus_url',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({url})
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.status==='connected'){
+      status.textContent='Connected to: '+d.url
+      status.style.color='var(--green)'
+      document.getElementById('cfg-prom').textContent=d.url
+      fetchLive()
+    } else {
+      status.textContent='Error: '+d.message
+      status.style.color='var(--red)'
+    }
+    btn.textContent='Connect'
+    btn.disabled=false
+  })
+  .catch(()=>{
+    status.textContent='Request failed — check the app is running'
+    status.style.color='var(--red)'
+    btn.textContent='Connect'
+    btn.disabled=false
+  })
+}
+
+// Mark input as user-edited so auto-fill from /api/config does not overwrite it
+document.getElementById('prom-url-input').addEventListener('input',function(){
+  this.dataset.userEdited='1'
+})
+
+// ── CSV ───────────────────────────────────────────────────────────────────────
+function uploadCSV(input){
+  const file=input.files[0]
+  if(!file) return
+  const form=new FormData()
+  form.append('file',file)
+  document.getElementById('csv-results').innerHTML='<div style="font-size:12px;color:var(--text3);padding:24px 0">Calculating MCI scores...</div>'
+  fetch('/api/upload_csv',{method:'POST',body:form}).then(r=>r.json()).then(results=>{
+    if(!results.length){document.getElementById('csv-results').innerHTML='<div style="font-size:12px;color:var(--text3);padding:24px 0">No valid rows found.</div>';return}
+    document.getElementById('csv-results').innerHTML=results.map(r=>{
+      const c=COLOR[r.classification]||COLOR["Optimal"]
+      const cs=r.csv_stats||{}
+      return `<div class="csv-result" style="border-color:${c.fg}22">
+        <div class="csv-result-header">
+          <div>
+            <div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em">${cs.name||r.source}</div>
+            <div class="csv-mci-number" style="color:${c.fg}">${r.mci.toFixed(4)}</div>
+            <div style="margin-top:10px"><span class="badge" style="color:${c.fg};background:${c.bg}">${r.classification}</span></div>
+          </div>
+          <div style="text-align:right;font-size:12px;color:var(--text3)">
+            <div>Requests: ${cs.req_count||'--'}</div>
+            <div style="margin-top:4px">Failures: ${cs.fail_count||0} (${cs.failure_pct||0}%)</div>
+          </div>
+        </div>
+        <div class="csv-stats-grid">
+          <div class="csv-stat"><div class="csv-stat-label">Throttle Ratio</div><div class="csv-stat-val">${(r.signals.throttle_ratio*100).toFixed(1)}%</div></div>
+          <div class="csv-stat"><div class="csv-stat-label">Memory Util</div><div class="csv-stat-val">${(r.signals.mem_util*100).toFixed(1)}%</div></div>
+          <div class="csv-stat"><div class="csv-stat-label">P99 Latency</div><div class="csv-stat-val">${r.signals.latency_p99}ms</div></div>
+          <div class="csv-stat"><div class="csv-stat-label">Avg Latency</div><div class="csv-stat-val">${cs.avg||'--'}ms</div></div>
+        </div>
+        <div class="csv-formula">MCI = 0.35x${r.normalised.N_throttle} + 0.25x${r.normalised.N_mem} + 0.25x${r.normalised.N_latency} + 0.15x${r.normalised.N_restart} = <span style="color:${c.fg}">${r.mci.toFixed(4)}</span></div>
+      </div>`
+    }).join('')
+    fetchLive()
+  })
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function fetchHistory(){
+  fetch('/api/history').then(r=>r.json()).then(rows=>{
+    const tbody=document.getElementById('history-body')
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="8" class="empty-state">No history yet — run an experiment first</td></tr>';return}
+    tbody.innerHTML=rows.map(r=>{
+      const c=COLOR[r.classification]||COLOR["Optimal"]
+      return `<tr>
+        <td>${new Date(r.timestamp).toLocaleString()}</td>
+        <td>${r.pod}</td>
+        <td>${(r.throttle_ratio*100).toFixed(1)}%</td>
+        <td>${(r.mem_util*100).toFixed(1)}%</td>
+        <td>${r.latency_p99}ms</td>
+        <td>${r.restart_rate.toFixed(4)}</td>
+        <td style="color:${c.fg};font-weight:500">${r.mci_score.toFixed(4)}</td>
+        <td><span class="badge" style="color:${c.fg};background:${c.bg}">${r.classification}</span></td>
+      </tr>`
+    }).join('')
+  })
+}
+
+// ── Recommendations 
+function fetchRecommendations(){
+  fetch('/api/recommendations').then(r=>r.json()).then(data=>{
+    const c=COLOR[data.classification]||COLOR["Optimal"]
+    document.getElementById('rec-summary').innerHTML=`
+      <div style="background:var(--bg1);border:1px solid ${c.fg}22;border-radius:8px;padding:24px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.06em">Current MCI Score</div>
+          <div style="font-size:42px;font-weight:600;font-variant-numeric:tabular-nums;color:${c.fg};line-height:1">${data.mci.toFixed(4)}</div>
+          <div style="margin-top:12px"><span class="badge" style="color:${c.fg};background:${c.bg}">${data.classification}</span></div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--text3);line-height:1.8">
+          <div>${data.recommendations.length} recommendation${data.recommendations.length!==1?'s':''}</div>
+          <div style="margin-top:4px;font-size:11px">Probe or run Locust to update signals</div>
+        </div>
+      </div>`
+    if(!data.recommendations.length){document.getElementById('rec-list').innerHTML='<div class="empty-state">No recommendations — signals are within normal range</div>';return}
+    document.getElementById('rec-list').innerHTML=data.recommendations.map(r=>{
+      const sc=SEVERITY_COLORS[r.severity]||SEVERITY_COLORS.info
+      return `<div class="rec-card ${r.severity}">
+        <div class="rec-header">
+          <div class="rec-signal" style="color:${sc.fg}">${r.signal}</div>
+          <span class="rec-severity" style="color:${sc.fg};background:${sc.bg}">${r.severity}</span>
+        </div>
+        <div class="rec-row"><div class="rec-key">Observation</div><div class="rec-val">${r.observation}</div></div>
+        <div class="rec-row"><div class="rec-key">Root Cause</div><div class="rec-val">${r.cause}</div></div>
+        <div class="rec-row"><div class="rec-key">Action</div><div class="rec-val highlight">${r.action}</div></div>
+        <div class="rec-row"><div class="rec-key">How to Fix</div><div class="rec-val">${r.suggested_change}</div></div>
+        <div class="rec-row"><div class="rec-key">Expected</div><div class="rec-val">${r.expected_outcome}</div></div>
+      </div>`
+    }).join('')
+  })
+}
+
+// ── Metrics Explorer
+function initMetrics(){
+  const container=document.getElementById('quick-queries')
+  if(container.children.length>0) return
+  QUICK_QUERIES.forEach((q,i)=>{
+    const btn=document.createElement('button')
+    btn.className='quick-btn'
+    btn.textContent=q.label
+    btn.id='qbtn-'+i
+    btn.onclick=()=>{
+      document.querySelectorAll('.quick-btn').forEach(b=>b.classList.remove('active-q'))
+      btn.classList.add('active-q')
+      document.getElementById('prom-query').value=q.query
+      runPromQuery()
+    }
+    container.appendChild(btn)
+  })
+}
+
+function runPromQuery(){
+  const query=document.getElementById('prom-query').value.trim()
+  if(!query) return
+  const resultsEl=document.getElementById('prom-results')
+  resultsEl.innerHTML='<div class="prom-empty">Running query...</div>'
+
+  fetch('/api/metrics_query',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({query})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.error){
+      resultsEl.innerHTML=`<div class="prom-empty" style="color:var(--red)">${data.error}</div>`
+      return
+    }
+    if(!data.results||!data.results.length){
+      resultsEl.innerHTML='<div class="prom-empty">No data returned — check query or ensure pod is running</div>'
+      return
+    }
+
+    const friendlyName=QUICK_QUERIES.find(q=>q.query===query)?.label||query
+
+    let html=`<div class="prom-result-card">
+      <div class="prom-result-header">
+        <span>${friendlyName}</span>
+        <span>${data.results.length} series — ${new Date().toLocaleTimeString()}</span>
+      </div>`
+
+    data.results.forEach(r=>{
+      const val=parseFloat(r.value)
+      const displayVal=isNaN(val)?r.value:
+        val>1e6?(val/1e6).toFixed(2)+' MB':
+        val>1000?val.toFixed(0):
+        val<0.01?val.toExponential(3):
+        val.toFixed(4)
+
+      const labels=Object.entries(r.labels||{})
+        .filter(([k])=>!['__name__','endpoint','id','image','instance','job','metrics_path','service','uid'].includes(k))
+        .map(([k,v])=>`<span class="lk">${k}=</span><span class="lv">"${v}"</span>`)
+        .join('  ')
+
+      html+=`<div class="prom-result-row">
+        <div class="prom-labels">${labels||'<span style="color:var(--text3)">no labels</span>'}</div>
+        <div class="prom-value">${displayVal}</div>
+      </div>`
+    })
+
+    html+='</div>'
+    resultsEl.innerHTML=html
+  })
+  .catch(()=>{
+    resultsEl.innerHTML='<div class="prom-empty" style="color:var(--red)">Query failed — check Prometheus connection</div>'
+  })
+}
+
+// ── History Charts 
+function colorForScore(s){
+  return s>=0.40?'#f85149':s>=0.15?'#d29922':s>=0.05?'#3fb950':'#388bfd'
+}
+
+function drawLineChart(canvasId, emptyId, readings, opts){
+  const canvas=document.getElementById(canvasId)
+  const empty =document.getElementById(emptyId)
+  if(!canvas) return
+  if(!readings.length){
+    canvas.style.display='none'
+    if(empty) empty.style.display='block'
+    return
+  }
+  if(empty) empty.style.display='none'
+  canvas.style.display='block'
+
+  const dpr=window.devicePixelRatio||1
+  // Robust width: CSS offsetWidth → parent content width → fallback
+  let W=canvas.offsetWidth
+  if(!W && canvas.parentElement) W=canvas.parentElement.clientWidth-40
+  W=Math.max(W||0, 200)
+  const H=opts.height||140
+  // Assigning canvas.width resets the bitmap per spec; explicit clearRect for safety
+  canvas.width=W*dpr; canvas.height=H*dpr
+  const ctx=canvas.getContext('2d')
+  ctx.scale(dpr,dpr)
+  ctx.clearRect(0, 0, W, H)
+
+  try{
+    // Null / non-finite guard — DB can store NaN if Prometheus returns garbage
+    const values=readings.map(r=>{const v=opts.getValue(r);return(typeof v==='number'&&isFinite(v))?v:0})
+    const n=readings.length
+    const thr=opts.threshold||0
+    const maxY=Math.max(...values, thr, 0.001)*1.12
+
+    const PAD={t:16,r:16,b:36,l:52}
+    const cW=W-PAD.l-PAD.r
+    const cH=H-PAD.t-PAD.b
+    const BPAD=Math.max(6, Math.round(cH*0.07))
+
+    const px=i=>PAD.l+(n===1?cW/2:(i/(n-1))*cW)
+    const py=v=>PAD.t+(1-v/maxY)*(cH-BPAD)
+
+    // Chart floor
+    ctx.strokeStyle='#30363d'; ctx.lineWidth=1
+    ctx.beginPath(); ctx.moveTo(PAD.l,PAD.t+cH); ctx.lineTo(PAD.l+cW,PAD.t+cH); ctx.stroke()
+
+    // Y-axis gridlines + labels
+    for(let step=0;step<=4;step++){
+      const v=(maxY/4)*step, y=py(v)
+      ctx.strokeStyle='#30363d'; ctx.lineWidth=0.5
+      ctx.beginPath(); ctx.moveTo(PAD.l,y); ctx.lineTo(PAD.l+cW,y); ctx.stroke()
+      ctx.fillStyle='#6e7681'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='right'
+      ctx.fillText(opts.formatY?opts.formatY(v):v.toFixed(3), PAD.l-4, y+4)
+    }
+
+    // Threshold dashed line
+    if(thr>0){
+      const ty=py(thr)
+      ctx.strokeStyle=opts.color+'99'; ctx.lineWidth=1.5; ctx.setLineDash([5,4])
+      ctx.beginPath(); ctx.moveTo(PAD.l,ty); ctx.lineTo(PAD.l+cW,ty); ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle=opts.color+'cc'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='left'
+      ctx.fillText(opts.thresholdLabel||String(thr), PAD.l+4, ty-4)
+    }
+
+    // Area fill
+    ctx.beginPath()
+    values.forEach((v,i)=>{i===0?ctx.moveTo(px(i),py(v)):ctx.lineTo(px(i),py(v))})
+    ctx.lineTo(px(n-1),PAD.t+cH); ctx.lineTo(px(0),PAD.t+cH); ctx.closePath()
+    ctx.fillStyle=opts.color+'1a'; ctx.fill()
+
+    // Line
+    ctx.beginPath()
+    values.forEach((v,i)=>{i===0?ctx.moveTo(px(i),py(v)):ctx.lineTo(px(i),py(v))})
+    ctx.strokeStyle=opts.color; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke()
+
+    // Dots
+    values.forEach((v,i)=>{
+      const x=px(i), y=py(v)
+      ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2)
+      ctx.fillStyle=opts.dotColor?opts.dotColor(v):opts.color
+      ctx.fill(); ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke()
+    })
+
+    // X-axis time labels (skip alternates when n > 5)
+    ctx.fillStyle='#6e7681'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='center'
+    readings.forEach((r,i)=>{
+      if(n>5&&i%2!==0&&i!==n-1) return
+      ctx.fillText(new Date(r.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}),px(i),H-6)
+    })
+
+    console.log('[chart:'+canvasId+']', n, 'pts W='+W,
+      'vals:', values.map(v=>opts.formatY?opts.formatY(v):v.toFixed(4)).join(', '))
+  }catch(err){
+    console.error('[chart:'+canvasId+'] draw error:', err)
+  }
+}
+
+function fetchChart(){
+  fetch('/api/history')
+    .then(r=>r.json())
+    .then(rows=>{
+      const newest=rows[0]
+      console.log('[fetchChart] rows='+rows.length+
+        ' newest='+(newest?newest.timestamp:'—')+
+        ' mci='+(newest?newest.mci_score:'—'))
+      const recent=rows.slice(0,10).reverse()
+
+      drawLineChart('mci-chart','chart-empty', recent, {
+        getValue:r=>r.mci_score, color:'#2f81f7',
+        threshold:0.40, thresholdLabel:'0.40 — Under-Provisioned',
+        formatY:v=>v.toFixed(2), dotColor:colorForScore, height:150
+      })
+      drawLineChart('chart-throttle','chart-throttle-empty', recent, {
+        getValue:r=>r.throttle_ratio, color:'#f85149',
+        threshold:0.10, thresholdLabel:'10% throttle',
+        formatY:v=>(v*100).toFixed(1)+'%', height:130
+      })
+      drawLineChart('chart-mem','chart-mem-empty', recent, {
+        getValue:r=>r.mem_util, color:'#d29922',
+        threshold:0.85, thresholdLabel:'85% memory',
+        formatY:v=>(v*100).toFixed(1)+'%', height:130
+      })
+      drawLineChart('chart-latency','chart-latency-empty', recent, {
+        getValue:r=>r.latency_p99, color:'#8957e5',
+        threshold:500, thresholdLabel:'500ms SLA',
+        formatY:v=>v.toFixed(0)+'ms', height:130
+      })
+    })
+    .catch(e=>console.error('[fetchChart] error:', e))
+}
+
+fetchLive()
+fetchChart()
+// fetchChart is delayed 3 s inside every interval tick so fetchLive's Prometheus
+// queries + log_to_db (~2 s) finish before the chart reads the DB.
+setInterval(()=>{
+  fetchLive()
+  setTimeout(fetchChart, 3000)
+}, 15000)
+</script>
+</body>
+</html>
