@@ -12,7 +12,7 @@ A real-time monitoring dashboard that computes the **Composite Misconfiguration 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/tejaspatil/mci-dashboard.git
+git clone https://github.com/x24250511/MCI-Dashboard
 cd mci-dashboard
 
 # 2. Copy the example environment file
